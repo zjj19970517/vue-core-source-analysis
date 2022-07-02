@@ -188,14 +188,18 @@ export function createAppAPI<HostElement>(
       rootProps = null
     }
 
+    // 上下文
     const context = createAppContext()
     const installedPlugins = new Set()
 
     let isMounted = false
 
+    console.log('rootComponent', rootComponent)
+
+    // 构建 app 实例
     const app: App = (context.app = {
       _uid: uid++,
-      _component: rootComponent as ConcreteComponent,
+      _component: rootComponent as ConcreteComponent, // 根组件
       _props: rootProps,
       _container: null,
       _context: context,
@@ -203,10 +207,10 @@ export function createAppAPI<HostElement>(
 
       version,
 
+      // 全局配置
       get config() {
         return context.config
       },
-
       set config(v) {
         if (__DEV__) {
           warn(
@@ -215,6 +219,7 @@ export function createAppAPI<HostElement>(
         }
       },
 
+      // 插件
       use(plugin: Plugin, ...options: any[]) {
         if (installedPlugins.has(plugin)) {
           __DEV__ && warn(`Plugin has already been applied to target app.`)
@@ -283,19 +288,14 @@ export function createAppAPI<HostElement>(
         isHydrate?: boolean,
         isSVG?: boolean
       ): any {
+        // 首次 mount 时，isMounted 为 false
         if (!isMounted) {
-          // #5571
-          if (__DEV__ && (rootContainer as any).__vue_app__) {
-            warn(
-              `There is already an app instance mounted on the host container.\n` +
-                ` If you want to mount another app on the same host container,` +
-                ` you need to unmount the previous app by calling \`app.unmount()\` first.`
-            )
-          }
+          // 创建虚拟 DOM，基于根组件的配置选项，这里根组件主要包含有 template、setup
           const vnode = createVNode(
             rootComponent as ConcreteComponent,
             rootProps
           )
+
           // store app context on the root VNode.
           // this will be set on the root instance on initial mount.
           vnode.appContext = context
@@ -308,8 +308,11 @@ export function createAppAPI<HostElement>(
           }
 
           if (isHydrate && hydrate) {
+            // 服务端渲染
             hydrate(vnode as VNode<Node, Element>, rootContainer as any)
           } else {
+            // 正常的渲染流程
+            // 渲染完毕后，页面中的真实 DOM 就生成了
             render(vnode, rootContainer, isSVG)
           }
           isMounted = true
@@ -322,7 +325,7 @@ export function createAppAPI<HostElement>(
             devtoolsInitApp(app, version)
           }
 
-          return getExposeProxy(vnode.component!) || vnode.component!.proxy
+          return  (vnode.component!) || vnode.component!.proxy
         } else if (__DEV__) {
           warn(
             `App has already been mounted.\n` +

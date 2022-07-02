@@ -64,6 +64,8 @@ export const hydrate = ((...args) => {
 }) as RootHydrateFunction
 
 export const createApp = ((...args) => {
+  // 获得 渲染器 renderer
+  // 调用 renderer 的 createApp 方法获得 app 实例
   const app = ensureRenderer().createApp(...args)
 
   if (__DEV__) {
@@ -71,17 +73,21 @@ export const createApp = ((...args) => {
     injectCompilerOptionsCheck(app)
   }
 
+  // 获取 mount 方法
   const { mount } = app
+  // 对 mount 方法进行扩展
   app.mount = (containerOrSelector: Element | ShadowRoot | string): any => {
+    // 接受的参数为 containerOrSelector，可能是 一个 DOM 元素，也可能是字符串，也可能是其他，我们最常传入的参数是字符串
+    // eg: '#root'
+
+    // normalizeContainer 将这三种参数类型，规范化为了 Element 类型
     const container = normalizeContainer(containerOrSelector)
     if (!container) return
 
+    // 根组件选项
     const component = app._component
     if (!isFunction(component) && !component.render && !component.template) {
-      // __UNSAFE__
-      // Reason: potential execution of JS expressions in in-DOM template.
-      // The user must make sure the in-DOM template is trusted. If it's
-      // rendered by the server, the template should not contain any user data.
+      // 这里设置了根组件的 template 模版
       component.template = container.innerHTML
       // 2.x compat check
       if (__COMPAT__ && __DEV__) {
@@ -98,8 +104,10 @@ export const createApp = ((...args) => {
       }
     }
 
+    // mount 之前先清空
     // clear content before mounting
     container.innerHTML = ''
+    // 这里是真正的 mount 过程
     const proxy = mount(container, false, container instanceof SVGElement)
     if (container instanceof Element) {
       container.removeAttribute('v-cloak')
@@ -108,6 +116,7 @@ export const createApp = ((...args) => {
     return proxy
   }
 
+  // 最终将 app 实例返回
   return app
 }) as CreateAppFunction<Element>
 

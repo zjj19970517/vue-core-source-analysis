@@ -420,6 +420,7 @@ function baseCreateRenderer(
             optimized
           )
         } else if (shapeFlag & ShapeFlags.COMPONENT) {
+          // app.mount 时候会走这里
           processComponent(
             n1,
             n2,
@@ -1172,6 +1173,8 @@ function baseCreateRenderer(
           optimized
         )
       } else {
+        // app.mount 会走到这里
+        // 挂载组件
         mountComponent(
           n2,
           container,
@@ -1183,10 +1186,12 @@ function baseCreateRenderer(
         )
       }
     } else {
+      // 组件更新
       updateComponent(n1, n2, optimized)
     }
   }
 
+  // 挂载组件
   const mountComponent: MountComponentFn = (
     initialVNode,
     container,
@@ -1200,6 +1205,8 @@ function baseCreateRenderer(
     // mounting
     const compatMountInstance =
       __COMPAT__ && initialVNode.isCompatRoot && initialVNode.component
+
+    // 组件实例的初始化
     const instance: ComponentInternalInstance =
       compatMountInstance ||
       (initialVNode.component = createComponentInstance(
@@ -1227,6 +1234,8 @@ function baseCreateRenderer(
       if (__DEV__) {
         startMeasure(instance, `init`)
       }
+      // 这里是非常关键的
+      // 组件初始化
       setupComponent(instance)
       if (__DEV__) {
         endMeasure(instance, `init`)
@@ -1306,11 +1315,12 @@ function baseCreateRenderer(
     isSVG,
     optimized
   ) => {
+    // 组件更新函数
     const componentUpdateFn = () => {
       if (!instance.isMounted) {
         let vnodeHook: VNodeHook | null | undefined
         const { el, props } = initialVNode
-        const { bm, m, parent } = instance
+        const { bm, m, parent } = instance // bm => beforeMounted; m => mounted
         const isAsyncWrapperVNode = isAsyncWrapper(initialVNode)
 
         toggleRecurse(instance, false)
@@ -1380,6 +1390,7 @@ function baseCreateRenderer(
           if (__DEV__) {
             startMeasure(instance, `patch`)
           }
+          debugger
           patch(
             null,
             subTree,
@@ -1549,13 +1560,15 @@ function baseCreateRenderer(
       }
     }
 
+    // 安装副作用
     // create reactive effect for rendering
     const effect = (instance.effect = new ReactiveEffect(
       componentUpdateFn,
       () => queueJob(update),
       instance.scope // track it in component's effect scope
     ))
-
+    
+    // 创建更新函数
     const update: SchedulerJob = (instance.update = () => effect.run())
     update.id = instance.uid
     // allowRecurse
@@ -1572,6 +1585,7 @@ function baseCreateRenderer(
       update.ownerInstance = instance
     }
 
+    // 第一次会执行一下更新函数
     update()
   }
 
@@ -2329,6 +2343,8 @@ function baseCreateRenderer(
         unmount(container._vnode, null, null, true)
       }
     } else {
+      // 情况一：app.mount 的时候：
+      // 此时的 patch 过程实际上就是 挂载过程，不是更新过程，虚拟 DOM patch 转换为 真实 DOM，并追加到 container 中
       patch(container._vnode || null, vnode, container, null, null, null, isSVG)
     }
     flushPostFlushCbs()

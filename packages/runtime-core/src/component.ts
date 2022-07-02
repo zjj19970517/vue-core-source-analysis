@@ -600,6 +600,7 @@ export function setupComponent(
 
   const { props, children } = instance.vnode
   const isStateful = isStatefulComponent(instance)
+  // 开始初始化
   initProps(instance, props, isStateful, isSSR)
   initSlots(instance, children)
 
@@ -616,6 +617,7 @@ function setupStatefulComponent(
 ) {
   const Component = instance.type as ComponentOptions
 
+  // 开发环境下校验
   if (__DEV__) {
     if (Component.name) {
       validateComponentName(Component.name, instance.appContext.config)
@@ -648,6 +650,8 @@ function setupStatefulComponent(
   if (__DEV__) {
     exposePropsOnRenderContext(instance)
   }
+
+  // 取得 setup 函数
   // 2. call setup()
   const { setup } = Component
   if (setup) {
@@ -715,6 +719,7 @@ export function handleSetupResult(
       // set it as ssrRender instead.
       instance.ssrRender = setupResult
     } else {
+      // 组件实例的 render 函数
       instance.render = setupResult as InternalRenderFunction
     }
   } else if (isObject(setupResult)) {
@@ -817,6 +822,7 @@ export function finishComponentSetup(
             extend(finalCompilerOptions.compatConfig, Component.compatConfig)
           }
         }
+        // 模版编译为render函数
         Component.render = compile(template, finalCompilerOptions)
         if (__DEV__) {
           endMeasure(instance, `compile`)
