@@ -55,7 +55,14 @@ function targetTypeMap(rawType: string) {
   }
 }
 
+/**
+ * 获取对象 target 的类型
+ * @param value
+ * @returns 无效 ｜ COMMON ｜ COLLECTION
+ */
 function getTargetType(value: Target) {
+  // __v_skip 表示不可被代理，需要跳过
+  // !Object.isExtensible(value) 对象不可被扩展
   return value[ReactiveFlags.SKIP] || !Object.isExtensible(value)
     ? TargetType.INVALID
     : targetTypeMap(toRawType(value))
@@ -88,15 +95,21 @@ export type UnwrapNestedRefs<T> = T extends Ref ? T : UnwrapRefSimple<T>
  */
 export function reactive<T extends object>(target: T): UnwrapNestedRefs<T>
 export function reactive(target: object) {
+  /**
+   *  FIXME: reactive 接受一个 readonly 代理对象时，直接返回
+      const proxy1 = readonly({});
+      const proxy2 = reactive(proxy1);
+      console.log("验证一：", proxy1 === proxy2); // true
+   */
   // if trying to observe a readonly proxy, return the readonly version.
   if (isReadonly(target)) {
     return target
   }
   return createReactiveObject(
-    target,
+    target, // arr、obj、map、set 这几种类型
     false,
-    mutableHandlers,
-    mutableCollectionHandlers,
+    mutableHandlers, // arr、obj 适用于这个
+    mutableCollectionHandlers, // map、set 适用于这个
     reactiveMap
   )
 }
@@ -185,35 +198,70 @@ function createReactiveObject(
   collectionHandlers: ProxyHandler<any>,
   proxyMap: WeakMap<Target, any>
 ) {
+  // 只接受对象类型
   if (!isObject(target)) {
     if (__DEV__) {
       console.warn(`value cannot be made reactive: ${String(target)}`)
     }
     return target
   }
+
   // target is already a Proxy, return it.
   // exception: calling readonly() on a reactive object
+  // 一个对象被代理过后，就会加上 __v_raw 属性
+  /**
+   *  FIXME: readonly 可以接受一个 reactive 代理过的对象
+      const proxy3 = reactive({});
+      const proxy4 = readonly(proxy3);
+      console.log("验证：", proxy4 === proxy3, proxy4, proxy3); // false
+   */
+
+  /**
+   *  FIXME: reactive 可以接受一个 reactive 代理过的对象，但是并不会再次做响应式代理，而是直接返回上一次代理后的响应式对象
+      const proxy5 = reactive({});
+      const proxy6 = reactive(proxy5);
+      console.log("验证：", proxy5 === proxy6); // true
+   */
   if (
     target[ReactiveFlags.RAW] &&
-    !(isReadonly && target[ReactiveFlags.IS_REACTIVE])
+    (!isReadonly || !target[ReactiveFlags.IS_REACTIVE])
   ) {
     return target
   }
-  // target already has corresponding Proxy
+
+  /**
+   *  FIXME: reactive 处理同一个对象，返回的仍旧是上次的代理后结果对象，原因是因为有缓存记录
+      const obj1 = {};
+      const proxy7 = reactive(obj1);
+      const proxy8 = reactive(obj1);
+      console.log("验证：", proxy7 === proxy8); // true
+   */
+  // 代理过后会有缓存记录，如果代理已经存在了，就直接返回
   const existingProxy = proxyMap.get(target)
   if (existingProxy) {
     return existingProxy
   }
+
+  // 判断这个对象能否被代理
   // only specific value types can be observed.
   const targetType = getTargetType(target)
   if (targetType === TargetType.INVALID) {
+    // 不能代理
     return target
   }
+
+  // 开始代理
   const proxy = new Proxy(
     target,
+    // 代理使用的 handler
+    // 公共 COMMON 类型使用 baseHandlers（object、array）
+    // 集合类型的 使用 collectionHandlers（set、map）
     targetType === TargetType.COLLECTION ? collectionHandlers : baseHandlers
   )
+
+  // 设置缓存
   proxyMap.set(target, proxy)
+  // 最后 reactive 返回代理结果
   return proxy
 }
 
@@ -236,14 +284,28 @@ export function isProxy(value: unknown): boolean {
   return isReactive(value) || isReadonly(value)
 }
 
+/**
+ * 处理一个响应式代理对象，返回其未被代理前的对象 target
+ * @param observed
+ * @returns
+ */
 export function toRaw<T>(observed: T): T {
+  // (observed as Target)[ReactiveFlags.RAW] 拿到的是这个代理对象原本的 target 对象，当然也可能是没有
   const raw = observed && (observed as Target)[ReactiveFlags.RAW]
+  // 为什么还要进行 toRaw 呢？
+  // 主要用来处理 ：readonly(reactive({}))
   return raw ? toRaw(raw) : observed
 }
 
+/**
+ * 标记一个对象，使得该对象不能被代理
+ * @param value
+ * @returns
+ */
 export function markRaw<T extends object>(
   value: T
 ): T & { [RawSymbol]?: true } {
+  // 给这个对象添加 __v_skip 属性，就可以跳过代理
   def(value, ReactiveFlags.SKIP, true)
   return value
 }

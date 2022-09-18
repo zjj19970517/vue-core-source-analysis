@@ -195,18 +195,6 @@ function createConfig(format, output, plugins = []) {
         namedExports: false
       }),
       tsPlugin,
-      createReplacePlugin(
-        isProductionBuild,
-        isBundlerESMBuild,
-        isBrowserESMBuild,
-        // isBrowserBuild?
-        (isGlobalBuild || isBrowserESMBuild || isBundlerESMBuild) &&
-          !packageOptions.enableNonBrowserBranches,
-        isGlobalBuild,
-        isNodeBuild,
-        isCompatBuild,
-        isServerRenderer
-      ),
       ...nodePlugins,
       ...plugins
     ],
